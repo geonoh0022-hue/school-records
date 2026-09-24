@@ -1,0 +1,9 @@
+{
+  "name": "teacher-workspace-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": "24.x"},
+  "scripts": {"start": "node --env-file-if-exists=.env server.js", "test": "node --test"},
+  "dependencies": {"pg": "8.16.3"}
+}

@@ -1,0 +1,21 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import {createHandler} from '../src/http.js';
+test('API persistence, revision conflicts, validation and origin protection',async t=>{
+ let state={revision:0,values:{}};
+ const store={get:async()=>state,health:async()=>{},put:async(revision,values)=>{if(revision!==state.revision)return null;state={revision:revision+1,values};return {revision:state.revision};}};
+ const server=http.createServer(createHandler(store,new URL('../public/',import.meta.url).pathname));
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
+ const base=`http://127.0.0.1:${server.address().port}`;
+ const d={version:1,years:[2026]};for(const k of ['schools','students','counsel','contacts','notes','assessments','results','exams','tasks','subjectNotes'])d[k]=[];
+ const payload={revision:0,values:{teacher_workspace_v1:JSON.stringify(d)}};
+ const put=(body,headers={})=>fetch(base+'/api/state',{method:'PUT',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
+ assert.equal((await fetch(base+'/healthz')).status,200);
+ assert.equal((await put(payload)).status,200);
+ assert.equal((await (await fetch(base+'/api/state')).json()).values.teacher_workspace_v1,payload.values.teacher_workspace_v1);
+ assert.equal((await put(payload)).status,409);
+ assert.equal((await put({revision:1,values:{}})).status,400);
+ assert.equal((await put({...payload,revision:1},{Origin:'https://evil.example'})).status,403);
+ assert.equal((await fetch(base+'/.env')).status,404);
+});
